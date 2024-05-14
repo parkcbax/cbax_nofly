@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBAX NO-FLY AREA Viewer</title>
+
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="THAILAND CAAT NOFLY AREA FOR DRONE" />
+    <meta property="og:description" content="พื้นที่ห้ามบินตามประกาศ CAAT (กรมการบินพลเรือน)" />
+    <meta property="og:url" content="https://nofly.cb.ax/" />
+    <meta property="og:site_name" content="CB.AX" />
+    <meta property="og:image" content="https://cb.ax/nofly/feature_img.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    
+    <style>
+        html,
+        body,
+        #map {
+            height: 100%;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            position: relative;
+            /* Needed for absolute positioning of loader */
+        }
+
+        /* HTML: <div class="loader"></div> */
+        .loader {
+            width: 50px;
+            aspect-ratio: 1;
+            display: grid;
+            border: 4px solid #0000;
+            border-radius: 50%;
+            border-right-color: #25b09b;
+            animation: l15 1s infinite linear;
+        }
+
+        .loader::before,
+        .loader::after {
+            content: "";
+            grid-area: 1/1;
+            margin: 2px;
+            border: inherit;
+            border-radius: 50%;
+            animation: l15 2s infinite;
+        }
+
+        .loader::after {
+            margin: 8px;
+            animation-duration: 3s;
+        }
+
+        @keyframes l15 {
+            100% {
+                transform: rotate(1turn)
+            }
+        }
+
+        .custom-image-control {
+
+            /* Adjust width as needed */
+            height: 40px;
+            /* Adjust height as needed */
+            border-radius: 8px;
+            /* Add rounded corners */
+
+            /* Add shadow */
+            cursor: pointer;
+            /* Change cursor to pointer on hover */
+            transition: transform 0.2s ease-in-out;
+            /* Add smooth hover effect */
+            background-color: white;
+        }
+
+        .custom-image-control:hover {
+            transform: scale(1.05);
+            /* Scale up on hover */
+        }
+
+        .custom-control {
+            border-radius: 8px;
+            background-color: white;
+        }
+
+        .custom-text {
+            color: black;
+            padding: 5px;
+        }
+    </style>
+    <!-- Leaflet (JS/CSS) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
+    <!-- Leaflet-KMZ -->
+    <script src="https://unpkg.com/leaflet-kmz@latest/dist/leaflet-kmz.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<body>
+    <div id="map" style="opacity: 0.2;"></div>
+    <div class="loader" style="position: absolute;top:50%;left:50%;">
+
+    </div> <!-- Loader element -->
+    <script>
+        let loadedKMZ = 0;
+        const allKMZ_count = 2;
+
+        let userLocationAllowed = false;
+
+        function extractData(htmlData) {
+            // Create a temporary div element to parse the HTML
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlData;
+
+            // Find the table containing the data
+            var dataTable = tempDiv.querySelector('table');
+
+            // Initialize variables to store extracted values
+            var x, y, locationIndicator;
+
+            // Iterate over table rows to extract data
+            var rows = dataTable.querySelectorAll('tr');
+            rows.forEach(function (row) {
+                var cells = row.querySelectorAll('td');
+                // Check if there are at least two cells in the row
+                if (cells.length >= 2) {
+                    var label = cells[0].textContent.trim();
+                    var value = cells[1].textContent.trim();
+                    // Extract X, Y, and Location_Indicator
+                    if (label === 'X') {
+                        x = parseFloat(value);
+                    } else if (label === 'Y') {
+                        y = parseFloat(value);
+                    } else if (label === 'Location_Indicator') {
+                        locationIndicator = value;
+                    }
+                }
+            });
+
+            // Return the extracted values
+            return {
+                x: x,
+                y: y,
+                locationIndicator: locationIndicator
+            };
+        }
+
+
+        // Define a custom control class
+        var CustomControl = L.Control.extend({
+            onAdd: function (map) {
+                // Create a container element for the control
+                var container = L.DomUtil.create('div', 'custom-control');
+
+                container.innerHTML = '<span class="custom-text">CAAT Data Last updated on OCT2019, Created with love by <a href="https://cb.ax/blog">CB.AX</a></span>';
+
+                // Create an image element and add it to the container
+                //var img = L.DomUtil.create('img', 'custom-image-control', container);
+                //img.src = 'https://cb.ax/blog/wp-content/uploads/2021/02/siteLogo5-1.png'; // Set the source of the image
+
+
+
+                // Create a text element and add it to the container
+                //var text = L.DomUtil.create('span', 'custom-text', container);
+                //text.textContent = 'CAAT Data Last updated OCT2019<br>broung to you by <a href="https://cb.ax/blog">cb.ax</a>';
+
+                // Add event listeners for the image click event
+                /* L.DomEvent.on(img, 'click', function (e) {
+                     // Handle image click event here
+                     //console.log('Custom image clicked');
+                     location.href = "https://cb.ax/blog";
+                 });*/
+
+                return container;
+            }
+        });
+
+        // Create an instance of the custom control
+        var customControl = new CustomControl();
+
+        $('.loader').show();
+        var map = L.map('map', {
+            preferCanvas: true // recommended when loading large layers.
+        });
+
+        // Add the custom control to the map
+        customControl.addTo(map);
+
+        // Check for geolocation support
+        if ("geolocation" in navigator) {
+            // If geolocation is supported, ask for the user's location
+            navigator.geolocation.getCurrentPosition(function (position) {
+                // On success, create a marker at the user's position
+                var latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+                L.marker(latlng).addTo(map).bindPopup("You are here").openPopup();
+                userLocationAllowed = true;
+                map.setView(latlng, 14);
+            }, function (error) {
+                // On error, log the error message
+                console.error('Error getting user location:', error.message);
+            });
+        } else {
+            // If geolocation is not supported, log a message
+            console.error('Geolocation is not supported');
+        }
+
+        if (!userLocationAllowed) {
+            // Set default view to Bangkok
+            map.setView(new L.LatLng(13.736717, 100.523186), 10);
+        }
+
+
+        /*var OpenTopoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            maxZoom: 17,
+            attribution: 'Map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+            opacity: 0.90
+        });
+        OpenTopoMap.addTo(map);*/
+        var osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+        });
+        osmTiles.addTo(map);
+
+        // Instantiate KMZ layer (async)
+        var kmz = L.kmzLayer().addTo(map);
+
+        // Show loader and adjust opacity when KMZ layer starts loading
+        kmz.on('loading', function () {
+            $('.loader').show();
+            console.log("KMZ Loading..");
+        });
+
+        // Hide loader and adjust opacity when KMZ layer finishes loading
+        kmz.on('load', function (e) {
+            //console.log(e);
+            console.log("KMZ Loaded");
+            // Change style of Aerodrome.kmz layer to yellow with black border
+            var layer = e.layer;
+            //kmz.getLayers().forEach(function(layer) {
+            //console.log(layer);
+            if (e.name === 'Aerodrome.kmz') { // Assuming 'Aerodrome' is the name of the layer
+                layer.setStyle({
+                    fillColor: 'yellow',
+                    color: 'black',
+                    fillOpacity: 0.6, // Adjust fill opacity if needed
+                    zIndex: 1000,
+                    weight: 2
+                });
+
+                layer.eachLayer(function (marker) {
+                    //console.log(marker.feature);
+                    //AIRPORT NAME : marker.feature.properties.name.split("/")[1]
+                    //marker.bindPopup(marker.feature.properties.description); // Assuming 'description' contains text content
+                    //var dataFromDescription = extractData(marker.feature.properties.description);
+                    //dataFromDescription.airportName = marker.feature.properties.name.split("/")[1]
+
+                });
+
+                layer.bringToFront();
+
+                loadedKMZ++;
+            }
+            if (e.name === 'PDR-AREA.kmz') { // Assuming 'Aerodrome' is the name of the layer
+                layer.setStyle({
+                    fillColor: 'red',
+                    color: 'black',
+                    fillOpacity: 0.2, // Adjust fill opacity if needed
+                    zIndex: 500
+                });
+                //layer.eachLayer(function (marker) {
+                //    marker.bindTooltip(marker.feature.properties.description); // Assuming 'description' contains text content
+                //});
+                layer.bringToBack();
+                loadedKMZ++;
+            }
+
+
+            if (loadedKMZ >= allKMZ_count) {
+                $('.loader').hide();
+                $('#map').css('opacity', 1);
+            }
+            //});
+        });
+
+
+        // Add remote KMZ files as layers (NB if they are 3rd-party servers, they MUST have CORS enabled)
+        kmz.load('https://cb.ax/nofly/PDR-AREA.kmz');
+        kmz.load('https://cb.ax/nofly/Aerodrome.kmz');
+    </script>
+    <noscript>
+        <img src="https://shynet.bz.ax/ingress/36cbd2df-4e91-4b68-8c0c-f1c9f942bc81/pixel.gif">
+    </noscript>
+    <script defer src="https://shynet.bz.ax/ingress/36cbd2df-4e91-4b68-8c0c-f1c9f942bc81/script.js"></script>
+</body>
+
+</html>
