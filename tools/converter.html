@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS DMS to DD Converter</title>
+    <script>
+        function convertDMStoDD() {
+            // Get the DMS value from the input field
+            const dmsInput = document.getElementById("dmsInput").value.trim();
+            
+            // Regular expression to parse combined DMS values
+            const dmsRegex = /^(\d{2})(\d{2})(\d{2})([NS])(\d{3})(\d{2})(\d{2})([EW])$/;
+            
+            // Parse the input
+            const match = dmsInput.match(dmsRegex);
+            
+            if (!match) {
+                alert("Invalid DMS format. Please use the format: DDMMSSNDDDMMSSW or DDMMSSNDDDMMSSS.");
+                return;
+            }
+
+            // Extract latitude components
+            const latDeg = parseInt(match[1]);
+            const latMin = parseInt(match[2]);
+            const latSec = parseInt(match[3]);
+            const latDir = match[4];
+
+            // Extract longitude components
+            const lonDeg = parseInt(match[5]);
+            const lonMin = parseInt(match[6]);
+            const lonSec = parseInt(match[7]);
+            const lonDir = match[8];
+
+            // Convert DMS to DD for latitude
+            let latDD = latDeg + (latMin / 60) + (latSec / 3600);
+            if (latDir === "S") {
+                latDD = -latDD;
+            }
+
+            // Convert DMS to DD for longitude
+            let lonDD = lonDeg + (lonMin / 60) + (lonSec / 3600);
+            if (lonDir === "W") {
+                lonDD = -lonDD;
+            }
+
+            // Display the results
+            document.getElementById("result").innerText = `Latitude: ${latDD.toFixed(16)}°, Longitude: ${lonDD.toFixed(16)}°`;
+        }
+    </script>
+</head>
+<body>
+    <h1>GPS DMS to DD Converter</h1>
+    <div>
+        <label for="dmsInput">GPS DMS Coordinate:</label>
+        <input type="text" id="dmsInput" placeholder="e.g., 150700N1005900E"><br>
+    </div>
+    <button onclick="convertDMStoDD()">Convert to DD</button>
+    <h2 id="result">Latitude: , Longitude: </h2>
+</body>
+</html>

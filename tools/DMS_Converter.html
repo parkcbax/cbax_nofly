@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMS to KML Converter</title>
+    <script>
+        function convertDMStoDD(dms) {
+            // Regular expression to parse combined DMS values
+            const dmsRegex = /^(\d{2})(\d{2})(\d{2})([NS])(\d{3})(\d{2})(\d{2})([EW])$/;
+            const match = dms.match(dmsRegex);
+
+            if (!match) {
+                alert("Invalid DMS format. Please use the format: DDMMSSNDDDMMSSW or DDMMSSNDDDMMSSS.");
+                return null;
+            }
+
+            // Extract latitude components
+            const latDeg = parseInt(match[1]);
+            const latMin = parseInt(match[2]);
+            const latSec = parseInt(match[3]);
+            const latDir = match[4];
+
+            // Extract longitude components
+            const lonDeg = parseInt(match[5]);
+            const lonMin = parseInt(match[6]);
+            const lonSec = parseInt(match[7]);
+            const lonDir = match[8];
+
+            // Convert DMS to DD for latitude
+            let latDD = latDeg + (latMin / 60) + (latSec / 3600);
+            if (latDir === "S") {
+                latDD = -latDD;
+            }
+
+            // Convert DMS to DD for longitude
+            let lonDD = lonDeg + (lonMin / 60) + (lonSec / 3600);
+            if (lonDir === "W") {
+                lonDD = -lonDD;
+            }
+
+            return `${lonDD.toFixed(10)},${latDD.toFixed(10)},0`;
+        }
+
+        function generateKML() {
+            const input = document.getElementById("dmsInput").value.trim();
+            const dmsCoordinates = input.split(/\s+/);
+            let coordinates = [];
+
+            for (const dms of dmsCoordinates) {
+                const coord = convertDMStoDD(dms);
+                if (coord) {
+                    coordinates.push(coord);
+                } else {
+                    return;
+                }
+            }
+
+            // Create KML content
+            const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+    <name>Converted KML</name>
+    <Placemark>
+        <name>Polygon</name>
+        <Polygon>
+            <tessellate>1</tessellate>
+            <outerBoundaryIs>
+                <LinearRing>
+                    <coordinates>
+                        ${coordinates.join(' ')}
+                    </coordinates>
+                </LinearRing>
+            </outerBoundaryIs>
+        </Polygon>
+    </Placemark>
+</Document>
+</kml>`;
+
+            // Download KML file
+            const blob = new Blob([kmlContent], { type: "application/vnd.google-earth.kml+xml" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "converted.kml";
+            link.click();
+        }
+    </script>
+</head>
+<body>
+    <h1>DMS to KML Converter</h1>
+    <div>
+        <label for="dmsInput">Enter DMS Coordinates (e.g., 150700N1005900E 150700N1005000E ...):</label><br>
+        <textarea id="dmsInput" rows="4" cols="50" placeholder="150700N1005900E 150700N1005000E 145500N1005000E 145500N1005900E 150700N1005900E"></textarea><br>
+    </div>
+    <button onclick="generateKML()">Convert to KML</button>
+</body>
+</html>
