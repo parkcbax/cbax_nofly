@@ -1,6 +1,6 @@
 # cbax_nofly
 
-No-fly area checking service for the cb.ax project
+No-fly area checking service at https://cb.ax/nofly
 
 ![Feature image](feature_img.jpg)
 
